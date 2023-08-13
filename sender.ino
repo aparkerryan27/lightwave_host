@@ -1,32 +1,21 @@
-/*********
-  Rui Santos
-  Complete project details at https://RandomNerdTutorials.com/esp-now-one-to-many-esp32-esp8266/
-  
-  Permission is hereby granted, free of charge, to any person obtaining a copy
-  of this software and associated documentation files.
-  
-  The above copyright notice and this permission notice shall be included in all
-  copies or substantial portions of the Software.
-*********/
-
 #include <esp_now.h>
 #include <ESP32Time.h>
 #include <WiFi.h>
 
+#define LED_BUILTIN 2
 ESP32Time rtc(0);
 // REPLACE WITH YOUR ESP RECEIVER'S MAC ADDRESS 
-uint8_t broadcastAddress1[] = {0x30,0xC6,0xF7,0x23,0x98,0x90};  //MAC of Lightbox
-// MAC of ESP32 with just little led {0x78,0x21,0x84,0x80,0x5C,0x50};
-uint8_t broadcastAddress2[] = {0x0C, 0xB8, 0x15, 0xD8, 0x2E, 0xB0}; // MAC of Tyler's ESP
-//uint8_t broadcastAddress3[] = {0xFF, , , , , };
+//HOST MAC ADDRESS 40:91:51:FD:11:70
+uint8_t broadcastAddress1[] = {0x40,0x91,0x51,0xFD,0x23,0xA4};  //MAC of receiver 1
 
-typedef struct color_struct {
+
+typedef struct info_struct {
+  int pattern;
   int h;
   int s;
   int v;
-} color_struct;
-
-color_struct clr;
+};
+info_struct info;
 
 int start_time;
 
@@ -43,11 +32,11 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
   Serial.print(" send status:\t");
   Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
   
-  start_time = millis();
+  //start_time = millis();
 
 }
 /*
- can't do this with multiple peers, used for testing latency
+ can't do a circular send/recieve with more than one peer, used for testing latency
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   memcpy(&clr, incomingData, sizeof(clr));
   Serial.print("Bytes received: ");
@@ -63,6 +52,9 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
 */
 
 void setup() {
+
+  pinMode(LED_BUILTIN, OUTPUT); 
+
   Serial.begin(115200);
   rtc.setTime(0);
   WiFi.mode(WIFI_STA);
@@ -83,24 +75,41 @@ void setup() {
     Serial.println("Failed to add peer");
     return;
   }  
- 
+
+  /*
   memcpy(peerInfo.peer_addr, broadcastAddress2, 6);
   if (esp_now_add_peer(&peerInfo) != ESP_OK){
     Serial.println("Failed to add peer");
     return;
   }
+  */
+
+  digitalWrite(LED_BUILTIN, HIGH);
+  delay(300);
+  digitalWrite(LED_BUILTIN, LOW);
+  delay(300);
+  digitalWrite(LED_BUILTIN, HIGH);
+  delay(300);
+  digitalWrite(LED_BUILTIN, LOW);
+
+  Serial.println(WiFi.macAddress());
 
 }
  
 void loop() {
 
-  if (Serial.available() >= 3) {
-    clr.h = Serial.read(); 
-    clr.s = Serial.read();
-    clr.v = Serial.read();
+  if (Serial.available() >= 4) {
 
+    info.pattern = Serial.read();
+    info.h = Serial.read(); 
+    info.s = Serial.read();
+    info.v = Serial.read();
     
-    esp_err_t result = esp_now_send(0, (uint8_t *) &clr, sizeof(color_struct));
+    esp_err_t result = esp_now_send(0, (uint8_t *) &info, sizeof(info_struct));
+    
+  digitalWrite(LED_BUILTIN, HIGH);
+  delay(2);
+  digitalWrite(LED_BUILTIN, LOW);
 
     if (result == ESP_OK) {
       Serial.println("Sent with success");
