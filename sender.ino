@@ -4,12 +4,22 @@
 
 #define LED_BUILTIN 2
 ESP32Time rtc(0);
-// REPLACE WITH YOUR ESP RECEIVER'S MAC ADDRESS 
-//HOST MAC ADDRESS 40:91:51:FD:11:70
-uint8_t broadcastAddress1[] = {0x40,0x91,0x51,0xFD,0x23,0xA4};  //MAC of receiver 1
 
+typedef struct {
+    uint8_t macAddress[6];
+    int group;
+} recv;
+
+// set up recivers here with their mac address
+recv receivers[] = {
+  {{0x40, 0x22, 0xD8, 0x3C, 0xDD, 0xFC}, 0},
+  {{0x40, 0x22, 0xD8, 0x3C, 0xEC, 0xBC}, 1},
+  {{0x40, 0x22, 0xD8, 0x3C, 0xDC, 0xD4}, 2},
+  // {{0x40, 0x22, 0xD8, 0x3C, 0xD6, 0x54}, 2},
+};
 
 typedef struct info_struct {
+  int group;
   int pattern;
   int h;
   int s;
@@ -35,21 +45,6 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
   //start_time = millis();
 
 }
-/*
- can't do a circular send/recieve with more than one peer, used for testing latency
-void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
-  memcpy(&clr, incomingData, sizeof(clr));
-  Serial.print("Bytes received: ");
-  Serial.println(len);
-
-  int end_time = millis();
-  Serial.println(start_time);
-  Serial.println(end_time);
-  Serial.print("round trip message (ms): ");
-  Serial.println(end_time - start_time);
-
-}
-*/
 
 void setup() {
 
@@ -70,19 +65,13 @@ void setup() {
   peerInfo.channel = 0;  
   peerInfo.encrypt = false;
   
-  memcpy(peerInfo.peer_addr, broadcastAddress1, 6);
-  if (esp_now_add_peer(&peerInfo) != ESP_OK){
-    Serial.println("Failed to add peer");
-    return;
-  }  
-
-  /*
-  memcpy(peerInfo.peer_addr, broadcastAddress2, 6);
-  if (esp_now_add_peer(&peerInfo) != ESP_OK){
-    Serial.println("Failed to add peer");
-    return;
+  for(int i = 0; i < sizeof(receivers) / sizeof(receivers[0]); i++) {
+    memcpy(peerInfo.peer_addr, receivers[i].macAddress, 6);
+    if (esp_now_add_peer(&peerInfo) != ESP_OK){
+      Serial.println("Failed to add peer");
+      return;
+    }
   }
-  */
 
   digitalWrite(LED_BUILTIN, HIGH);
   delay(300);
@@ -98,25 +87,30 @@ void setup() {
  
 void loop() {
 
-  if (Serial.available() >= 4) {
+  if (Serial.available() >= 5) {
 
+    info.group = Serial.read();
     info.pattern = Serial.read();
     info.h = Serial.read(); 
     info.s = Serial.read();
     info.v = Serial.read();
     
-    esp_err_t result = esp_now_send(0, (uint8_t *) &info, sizeof(info_struct));
-    
-  digitalWrite(LED_BUILTIN, HIGH);
-  delay(2);
-  digitalWrite(LED_BUILTIN, LOW);
+    for (int i = 0; i < sizeof(receivers) / sizeof(receivers[0]); i++) {
+      if (receivers[i].group == info.group) {
+        esp_err_t result = esp_now_send(receivers[i].macAddress, (uint8_t*)&info, sizeof(info_struct));
 
-    if (result == ESP_OK) {
-      Serial.println("Sent with success");
-    }
-    else {
-      //TODO: implement resend logic if no confirmation is recieved, caused if reception is interrupted by LED writes
-      Serial.println("Error sending the data");
+        digitalWrite(LED_BUILTIN, HIGH);
+        delay(2);
+        digitalWrite(LED_BUILTIN, LOW);
+
+        if (result == ESP_OK) {
+          Serial.println("Sent with success");
+        }
+        else {
+          //TODO: implement resend logic if no confirmation is received, caused if reception is interrupted by LED writes
+          Serial.println("Error sending the data");
+        }
+      }
     }
   }
 
