@@ -10,12 +10,18 @@ typedef struct {
     int group;
 } recv;
 
-// set up recivers here with their mac address
+// Set up receivers with their MAC address
 recv receivers[] = {
-  {{0x40, 0x22, 0xD8, 0x3C, 0xDD, 0xFC}, 0},
-  {{0x40, 0x22, 0xD8, 0x3C, 0xEC, 0xBC}, 1},
-  {{0x40, 0x22, 0xD8, 0x3C, 0xDC, 0xD4}, 2},
-  // {{0x40, 0x22, 0xD8, 0x3C, 0xD6, 0x54}, 2},
+  {{0x40, 0x22, 0xD8, 0x3C, 0x2D, 0xF0}, 0}, // 3 feet_1
+  {{0x40, 0x91, 0x51, 0xFD, 0x21, 0x60}, 0}, // 3 feet_2
+  // {{0x40, 0x22, 0xD8, 0x3C, 0xFF, 0xE8}, 0}, // 3 feet_3
+  // {{0x40, 0x91, 0x51, 0xFD, 0x1B, 0x64}, 0}, // 3 feet_4
+  {{0x40, 0x22, 0xD8, 0x3C, 0xD6, 0x54}, 1}, // 4 feet_1
+  {{0x40, 0x91, 0x51, 0xFD, 0x1B, 0x54}, 1}, // 4 feet_2
+  // {{0x40, 0x91, 0x51, 0xFD, 0x4C, 0xA0}, 0}, // 4 feet_3
+  // {{0x40, 0x22, 0xD8, 0x3C, 0xED, 0xC4}, 1}, // 4 feet_4
+  {{0x40, 0x22, 0xD8, 0x3C, 0xDC, 0xD4}, 2}, // 6 feet_1
+  // {{0x40, 0x91, 0x51, 0xFD, 0x20, 0x44}, 2}, // 6 feet_2
 };
 
 typedef struct info_struct {
@@ -33,14 +39,14 @@ esp_now_peer_info_t peerInfo;
 
 // callback when data is sent
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
-  char macStr[18];
-  Serial.print("Packet to: ");
-  // Copies the sender mac address to a string
-  snprintf(macStr, sizeof(macStr), "%02x:%02x:%02x:%02x:%02x:%02x",
-           mac_addr[0], mac_addr[1], mac_addr[2], mac_addr[3], mac_addr[4], mac_addr[5]);
-  Serial.print(macStr);
-  Serial.print(" send status:\t");
-  Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
+  // char macStr[18];
+  // Serial.print("Packet to: ");
+  // // Copies the sender mac address to a string
+  // snprintf(macStr, sizeof(macStr), "%02x:%02x:%02x:%02x:%02x:%02x",
+  //          mac_addr[0], mac_addr[1], mac_addr[2], mac_addr[3], mac_addr[4], mac_addr[5]);
+  // Serial.print(macStr);
+  // Serial.print(" send status:\t");
+  // Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
   
   //start_time = millis();
 
@@ -98,21 +104,8 @@ void loop() {
     for (int i = 0; i < sizeof(receivers) / sizeof(receivers[0]); i++) {
       if (receivers[i].group == info.group) {
         esp_err_t result = esp_now_send(receivers[i].macAddress, (uint8_t*)&info, sizeof(info_struct));
-
-        digitalWrite(LED_BUILTIN, HIGH);
-        delay(2);
-        digitalWrite(LED_BUILTIN, LOW);
-
-        if (result == ESP_OK) {
-          Serial.println("Sent with success");
-        }
-        else {
-          //TODO: implement resend logic if no confirmation is received, caused if reception is interrupted by LED writes
-          Serial.println("Error sending the data");
-        }
       }
     }
+    
   }
-
-  delay(2);
 }
